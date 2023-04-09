@@ -277,7 +277,8 @@ terraform validate
 terraform plan
 ```
     
-    - Let's now run terraform apply to apply the changes
+- Let's now run terraform apply to apply the changes
+
 ```
 terraform apply --auto-approve
 ```
