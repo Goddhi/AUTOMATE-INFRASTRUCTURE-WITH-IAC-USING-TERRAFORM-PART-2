@@ -283,9 +283,88 @@ terraform plan
 ```
 terraform apply --auto-approve
 ```
+### AWS Identity and Access Management
 
+We want to pass an IAM role on our EC2 instances to give them access to some specific resources, so we need to do the following:
 
+### Creating an IAM role (AssumeRole)
 
+Assume Role uses Security Token Service (STS) API that returns a set of temporary security credentials that you can use to access AWS resources that you might not normally have access to. These temporary credentials consist of an access key ID, a secret access key, and a security token. Typically, you use AssumeRole within your account or for cross-account access.
+
+Let's create a file called ```roles.tf``` and add the following to it to create an IAM role
+
+```resource "aws_iam_role" "ec2_instance_role" {
+name = "ec2_instance_role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Sid    = ""
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      },
+    ]
+  })
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "aws assume role"
+    },
+  )
+}
+```
+Note: This role grants an entity which is ec2, the ability to assume the role.
+
+### Creating an IAM policy
+
+This is where we need to define a required policy (i.e., permissions) according to our requirements. For example, allowing an IAM role to perform the action describe applied to EC2 instances:
+
+```
+resource "aws_iam_policy" "policy" {
+  name        = "ec2_instance_policy"
+  description = "A test policy"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "ec2:Describe*",
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      },
+    ]
+
+  })
+
+  tags = merge(
+    var.tags,
+    {
+      Name =  "aws assume policy"
+    },
+  )
+
+}
+```
+- Let's attach the Policy to the IAM Role. We can do this by adding the following to ```roles.tf```
+
+```
+resource "aws_iam_role_policy_attachment" "test-attach" {
+        role       = aws_iam_role.ec2_instance_role.name
+        policy_arn = aws_iam_policy.policy.arn
+    }
+```
+Let's create an instance profile and interpolate the ```IAM Role``` to it. We can do this by adding the following to ```roles.tf```
+
+```resource "aws_iam_instance_profile" "ip" {
+        name = "aws_instance_profile_test"
+        role =  aws_iam_role.ec2_instance_role.name
+    }
+```
 
 
 
