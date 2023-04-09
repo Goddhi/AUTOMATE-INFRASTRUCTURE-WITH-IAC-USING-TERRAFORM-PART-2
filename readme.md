@@ -360,7 +360,8 @@ resource "aws_iam_role_policy_attachment" "test-attach" {
 ```
 Let's create an instance profile and interpolate the ```IAM Role``` to it. We can do this by adding the following to ```roles.tf```
 
-```resource "aws_iam_instance_profile" "ip" {
+```
+resource "aws_iam_instance_profile" "ip" {
         name = "aws_instance_profile_test"
         role =  aws_iam_role.ec2_instance_role.name
     }
