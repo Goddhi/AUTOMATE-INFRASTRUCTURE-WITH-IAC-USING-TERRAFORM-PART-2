@@ -823,7 +823,7 @@ resource "aws_lb_listener" "web-listener" {
   }
 }
 
-# listener rule for tooling target
+###   listener rule for tooling target
 
 resource "aws_lb_listener_rule" "tooling-listener" {
   listener_arn = aws_lb_listener.web-listener.arn
@@ -847,4 +847,641 @@ resource "aws_lb_listener_rule" "tooling-listener" {
 terraform plan
 terraform apply
 ```
+
+### CREATING AUTOSCALING GROUPS.
+
+n this section, we will create the Auto Scaling Group (ASG) we need for the architecture. Our ASG needs to be able to scale the EC2s out and in depending on the application traffic.
+
+Before we start configuring an ASG, we need to create the launch template and the AMI needed. For now, we are going to use a random AMI from AWS, then in project 19, we will use Packer to create our AMI.
+
+Based on our architecture we need Auto Scaling Groups for bastion, Nginx, wordpress and tooling, so we will create two files; asg-bastion-nginx.tf will contain Launch Template and Austoscaling group for Bastion and Nginx, then asg-wordpress-tooling.tf will contain Launch Template and Autoscaling group for wordpress and tooling.
+
+### Creating notifications for all the auto-scaling groups
+
+Create ```asg-bastion-nginx.tf``` file and add the following code snippet:
+
+```
+## creating sns topic for all the auto scaling groups
+resource "aws_sns_topic" "manny-sns" {
+name = "Default_CloudWatch_Alarms_Topic"
+}
+```
+- Create notifications for all the auto-scaling groups
+
+```
+resource "aws_autoscaling_notification" "david_notifications" {
+  group_names = [
+    aws_autoscaling_group.bastion-asg.name,
+    aws_autoscaling_group.nginx-asg.name,
+    aws_autoscaling_group.wordpress-asg.name,
+    aws_autoscaling_group.tooling-asg.name,
+  ]
+  notifications = [
+    "autoscaling:EC2_INSTANCE_LAUNCH",
+    "autoscaling:EC2_INSTANCE_TERMINATE",
+    "autoscaling:EC2_INSTANCE_LAUNCH_ERROR",
+    "autoscaling:EC2_INSTANCE_TERMINATE_ERROR",
+  ]
+
+  topic_arn = aws_sns_topic.david-sns.arn
+}
+```
+
+### Creating our Launch Templates
+- In our asg-bastion-nginx.tf file, we will create our launch templates for the bastion instance.
+
+```
+# Get the list of availability zones
+resource "random_shuffle" "az_list" {
+  input        = data.aws_availability_zones.available.names
+}
+
+
+# Launch template for bastion hosts
+resource "aws_launch_template" "bastion-launch-template" {
+  image_id               = var.ami
+  instance_type          = "t2.micro"
+  vpc_security_group_ids = [aws_security_group.bastion_sg.id]
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ip.id
+  }
+
+  key_name = var.keypair
+
+  placement {
+    availability_zone = "${random_shuffle.az_list.result}"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+
+   tags = merge(
+    var.tags,
+    {
+      Name = format("%s-bastion-launch-template-%s", var.name, var.environment)
+    },
+  )
+  }
+
+  user_data = filebase64("${path.module}/bastion.sh")
+}
+
+
+# ---- Autoscaling for bastion  hosts
+resource "aws_autoscaling_group" "bastion-asg" {
+  name                      = "bastion-asg"
+  max_size                  = 2
+  min_size                  = 2
+  health_check_grace_period = 300
+  health_check_type         = "ELB"
+  desired_capacity          = 2
+
+  vpc_zone_identifier = [
+    aws_subnet.public[0].id,
+    aws_subnet.public[1].id
+  ]
+
+  launch_template {
+    id      = aws_launch_template.bastion-launch-template.id
+    version = "$Latest"
+  }
+  tag {
+    key                 = "Name"
+    value               = format("%s-bastion-asg-%s", var.name, var.environment)
+    propagate_at_launch = true
+  }
+
+}
+
+
+# launch template for nginx
+resource "aws_launch_template" "nginx-launch-template" {
+  image_id               = var.ami
+  instance_type          = "t2.micro"
+  vpc_security_group_ids = [aws_security_group.nginx-sg.id]
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ip.id
+  }
+
+  key_name =  var.keypair
+
+  placement {
+    availability_zone = "random_shuffle.az_list.result"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+
+    tags = merge(
+    var.tags,
+    {
+      Name = format("%s-nginx-launch-template-%s", var.name, var.environment)
+    },
+  )
+  }
+
+  user_data = filebase64("${path.module}/nginx.sh")
+}
+
+# ------ Autoscslaling group for reverse proxy nginx ---------
+
+resource "aws_autoscaling_group" "nginx-asg" {
+  name                      = "nginx-asg"
+  max_size                  = 2
+  min_size                  = 1
+  health_check_grace_period = 300
+  health_check_type         = "ELB"
+  desired_capacity          = 1
+
+  vpc_zone_identifier = [
+    aws_subnet.public[0].id,
+    aws_subnet.public[1].id
+  ]
+
+  launch_template {
+    id      = aws_launch_template.nginx-launch-template.id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = format("%s-nginx-asg-%s", var.name, var.environment)
+    propagate_at_launch = true
+  }
+
+}
+
+# attaching autoscaling group of nginx to external load balancer
+resource "aws_autoscaling_attachment" "asg_attachment_nginx" {
+  autoscaling_group_name = aws_autoscaling_group.nginx-asg.id
+  alb_target_group_arn   = aws_lb_target_group.nginx-tg.arn
+}
+```
+- Let's move on with creating and auto-scaling group for Wordpress and tooling. Create asg-wordpress-tooling.tf file and add the following code snippet:
+
+```
+# launch template for wordpress
+
+resource "aws_launch_template" "wordpress-launch-template" {
+  image_id               = var.ami
+  instance_type          = "t2.micro"
+  vpc_security_group_ids = [aws_security_group.webserver-sg.id]
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ip.id
+  }
+
+  key_name = var.keypair
+
+  placement {
+    availability_zone = "random_shuffle.az_list.result"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+
+    tags = merge(
+    var.tags,
+    {
+      Name = format("%s-wordpress-launch-template-%s", var.name, var.environment)
+    },
+  )
+
+  }
+
+  user_data = filebase64("${path.module}/wordpress.sh")
+}
+
+# ---- Autoscaling for wordpress application
+
+resource "aws_autoscaling_group" "wordpress-asg" {
+  name                      = "wordpress-asg"
+  max_size                  = 2
+  min_size                  = 1
+  health_check_grace_period = 300
+  health_check_type         = "ELB"
+  desired_capacity          = 1
+  vpc_zone_identifier = [
+
+    aws_subnet.private[0].id,
+    aws_subnet.private[1].id
+  ]
+
+  launch_template {
+    id      = aws_launch_template.wordpress-launch-template.id
+    version = "$Latest"
+  }
+  tag {
+    key                 = "Name"
+    value               = format("%s-wordpress-asg-%s", var.name, var.environment)
+    propagate_at_launch = true
+  }
+}
+
+# attaching autoscaling group of  wordpress application to internal loadbalancer
+resource "aws_autoscaling_attachment" "asg_attachment_wordpress" {
+  autoscaling_group_name = aws_autoscaling_group.wordpress-asg.id
+  alb_target_group_arn   = aws_lb_target_group.wordpress-tg.arn
+}
+
+# launch template for toooling
+resource "aws_launch_template" "tooling-launch-template" {
+  image_id               = var.ami
+  instance_type          = "t2.micro"
+  vpc_security_group_ids = [aws_security_group.webserver-sg.id]
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ip.id
+  }
+
+  key_name = var.keypair
+
+  placement {
+    availability_zone = "random_shuffle.az_list.result"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+
+  tags = merge(
+    var.tags,
+    {
+      Name = format("%s-tooling-launch-template-%s", var.name, var.environment)
+    },
+  )
+
+  }
+
+  user_data = filebase64("${path.module}/tooling.sh")
+}
+
+# ---- Autoscaling for tooling -----
+
+resource "aws_autoscaling_group" "tooling-asg" {
+  name                      = "tooling-asg"
+  max_size                  = 2
+  min_size                  = 1
+  health_check_grace_period = 300
+  health_check_type         = "ELB"
+  desired_capacity          = 1
+
+  vpc_zone_identifier = [
+
+    aws_subnet.private[0].id,
+    aws_subnet.private[1].id
+  ]
+
+  launch_template {
+    id      = aws_launch_template.tooling-launch-template.id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "tooling-launch-template"
+    propagate_at_launch = true
+  }
+}
+# attaching autoscaling group of  tooling application to internal loadbalancer
+resource "aws_autoscaling_attachment" "asg_attachment_tooling" {
+  autoscaling_group_name = aws_autoscaling_group.tooling-asg.id
+  alb_target_group_arn   = aws_lb_target_group.tooling-tg.arn
+}
+```
+Note: Remember to declare your variables in variables.tf file. And also for the wordpress.sh and tooling.sh files. You can find the code for these files in the files directory of this repository.
+
+### Provisioning Storage and Database
+
+The goal of this section is to create storage and a database for the WordPress application. We will be using AWS RDS for the database and AWS EFS for the storage.
+
+### Creating an EFS file system
+
+To create an EFS you need to create a KMS key.
+
+AWS Key Management Service (KMS) makes it easy for you to create and manage cryptographic keys and control their use across a wide range of AWS services and in your applications.
+
+Create a efs.tf file and add the following code snippet:
+```
+# create key from key management system
+resource "aws_kms_key" "ACS-kms" {
+  description = "KMS key "
+  policy      = <<EOF
+  {
+  "Version": "2012-10-17",
+  "Id": "kms-key-policy",
+  "Statement": [
+    {
+      "Sid": "Enable IAM User Permissions",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::${var.account_no}:user/Terraform" },
+      "Action": "kms:*",
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+}
+
+# create key alias
+resource "aws_kms_alias" "alias" {
+  name          = "alias/kms"
+  target_key_id = aws_kms_key.ACS-kms.key_id
+}
+```
+- Let us create EFS and its mount targets- add the following code to efs.tf
+
+```
+# create Elastic file system
+resource "aws_efs_file_system" "ACS-efs" {
+  encrypted  = true
+  kms_key_id = aws_kms_key.ACS-kms.arn
+
+  tags = merge(
+    var.tags,
+    {
+      Name = format("%s-efs-%s", var.name, var.environment)
+    },
+  )
+}
+
+# set first mount target for the EFS 
+resource "aws_efs_mount_target" "subnet-1" {
+  file_system_id  = aws_efs_file_system.ACS-efs.id
+  subnet_id       = aws_subnet.private[2].id
+  security_groups = [aws_security_group.datalayer-sg.id]
+}
+
+# set second mount target for the EFS 
+resource "aws_efs_mount_target" "subnet-2" {
+  file_system_id  = aws_efs_file_system.ACS-efs.id
+  subnet_id       = aws_subnet.private[3].id
+  security_groups = [aws_security_group.datalayer-sg.id]
+}
+
+# create access point for wordpress
+resource "aws_efs_access_point" "wordpress" {
+  file_system_id = aws_efs_file_system.ACS-efs.id
+
+  posix_user {
+    gid = 0
+    uid = 0
+  }
+
+  root_directory {
+    path = "/wordpress"
+
+    creation_info {
+      owner_gid   = 0
+      owner_uid   = 0
+      permissions = 0755
+    }
+
+  }
+
+}
+
+# create access point for tooling
+resource "aws_efs_access_point" "tooling" {
+  file_system_id = aws_efs_file_system.ACS-efs.id
+  posix_user {
+    gid = 0
+    uid = 0
+  }
+
+  root_directory {
+
+    path = "/tooling"
+
+    creation_info {
+      owner_gid   = 0
+      owner_uid   = 0
+      permissions = 0755
+    }
+
+  }
+}
+
+### Creating an RDS instance
+
+- Let's create an RDS instance. Add the following code to rds.tf file:
+
+```
+# This section will create the subnet group for the RDS  instance using the private subnet
+resource "aws_db_subnet_group" "ACS-rds" {
+  name       = "acs-rds"
+  subnet_ids = [aws_subnet.private[2].id, aws_subnet.private[3].[id]
+
+ tags = merge(
+    var.tags,
+    {
+      Name = format("%s-rds-%s", var.name, var.environment)
+    },
+  )
+}
+
+# create the RDS instance with the subnets group
+resource "aws_db_instance" "ACS-rds" {
+  allocated_storage      = 20
+  storage_type           = "gp2"
+  engine                 = "mysql"
+  engine_version         = "5.7"
+  instance_class         = "db.t2.micro"
+  name                   = "mannydb"
+  username               = var.master-username
+  password               = var.master-password
+  parameter_group_name   = "default.mysql5.7"
+  db_subnet_group_name   = aws_db_subnet_group.ACS-rds.name
+  skip_final_snapshot    = true
+  vpc_security_group_ids = [aws_security_group.datalayer-sg.id]
+  multi_az               = "true"
+}
+```
+- Before Applying, if you take note, we gave reference to a lot of variables in our resources that has not been declared in the variables.tf file. Go through the entire code and spot these variables and declare them in the variables.tf file.
+
+```
+
+variable "region" {
+  type = string
+  description = "The region to deploy resources"
+}
+
+variable "vpc_cidr" {
+  type = string
+  description = "The VPC cidr"
+}
+
+variable "enable_dns_support" {
+  type = bool
+}
+
+variable "enable_dns_hostnames" {
+  dtype = bool
+}
+
+variable "enable_classiclink" {
+  type = bool
+}
+
+variable "enable_classiclink_dns_support" {
+  type = bool
+}
+
+variable "preferred_number_of_public_subnets" {
+  type        = number
+  description = "Number of public subnets"
+}
+
+variable "preferred_number_of_private_subnets" {
+  type        = number
+  description = "Number of private subnets"
+}
+
+variable "name" {
+  type    = string
+  default = "ACS"
+
+}
+
+variable "tags" {
+  description = "A mapping of tags to assign to all resources."
+  type        = map(string)
+  default     = {}
+}
+
+variable "ami" {
+  type        = string
+  description = "AMI ID for the launch template"
+}
+
+variable "keypair" {
+  type        = string
+  description = "key pair for the instances"
+}
+
+variable "account_no" {
+  type        = number
+  description = "the account number"
+}
+
+variable "master-username" {
+  type        = string
+  description = "RDS admin username"
+}
+
+variable "master-password" {
+  type        = string
+  description = "RDS master password"
+}
+```
+- Now, we are almost done but we need to update the last file which is terraform.tfvars file. In this file, we are going to declare the values for the variables in our variables.tf file.
+
+```
+region = "us-east-1"
+
+vpc_cidr = "172.16.0.0/16"
+
+enable_dns_support = "true"
+
+enable_dns_hostnames = "true"
+
+enable_classiclink = "false"
+
+enable_classiclink_dns_support = "false"
+
+preferred_number_of_public_subnets = "2"
+
+preferred_number_of_private_subnets = "4"
+
+environment = "production"
+
+ami = "ami-0b0af3577fe5e3532"
+
+keypair = "devops"
+
+# Ensure to change this to your acccount number
+account_no = "123456789"
+
+db-username = "goddhi"
+
+db-password = "goddhideops"
+```
+### Conclusion
+
+We've been able to get all our infrastructure elements ready to be deployed automatically, but we still have a number of things that need to be resolved before deploying.
+
+  - We need to divide the project into modules to ensure that it's easier to read and understand.
+
+  - We need to fix the shell scripts that are needed for our RDS and EFS endpoints to be accessible from our EC2 instances.
+
+
+We would do this in the next project.
+
+### Additional Tasks
+
+    1. Summarise your understanding on Networking concepts like IP Address, Subnets, CIDR Notation, IP Routing, Internet Gateways, NAT gateways.
+    IP Address: An IP address is a unique identifier assigned to devices on a network that allows them to communicate with each other using the Internet Protocol. IP addresses are made up of four sets of numbers separated by periods, and they can be either IPv4 (32-bit) or IPv6 (128-bit).
+
+    Subnets: A subnet is a smaller network within a larger network that allows devices to communicate with each other using a shared set of IP addresses. Subnets can be used to organize devices on a network and improve security by isolating different parts of the network.
+
+    CIDR Notation: Classless Inter-Domain Routing (CIDR) notation is a way of representing IP addresses and subnets in a more concise format. CIDR notation combines the IP address with a number that indicates the number of bits in the subnet mask, which determines the range of IP addresses that are included in the subnet.
+
+    IP Routing: IP routing is the process of forwarding packets of data between networks. Routing is performed by routers, which use a routing table to determine the best path for data to travel based on the destination IP address.
+
+    Internet Gateways: An Internet gateway is a device that connects a local network to the Internet. Gateways typically perform network address translation (NAT) to allow devices on the local network to access the Internet using a shared public IP address.
+
+    NAT: Network Address Translation (NAT) is a method of remapping one IP address space into another by modifying network address information in the IP header of packets while they are in transit across a traffic routing device. This allows multiple devices on a local network to share a single public IP address when communicating with the Internet.
+
+  2.  Summarise your understanding of the OSI Model, TCP/IP suite and how they are connected – research beyond the provided articles, and watch different YouTube videos to fully understand the concept around OSI and how it is related to the Internet and end-to-end Web Solutions. You do not need to memorize the layers – just understand the idea around them.
+
+The seven layers of the OSI Model are:
+
+Physical Layer: This layer is responsible for the transmission and reception of raw bit streams over a physical medium.
+
+Data Link Layer: This layer provides error-free transmission of data over a physical link by dividing data into frames and ensuring that they are transmitted without errors.
+
+Network Layer: This layer is responsible for routing packets of data between different networks based on their IP addresses.
+
+Transport Layer: This layer provides reliable transmission of data between applications by establishing a connection-oriented or connectionless communication channel.
+
+Session Layer: This layer establishes, manages, and terminates sessions between applications running on different devices.
+
+Presentation Layer: This layer is responsible for data translation, encryption, and compression to ensure that data can be understood by the receiving application.
+
+Application Layer: This layer provides services to application programs and enables them to access network resources.
+
+The TCP/IP suite (Transmission Control Protocol/Internet Protocol) is a set of protocols that enable communication between devices on the Internet. It is based on the OSI Model, but it combines some of the layers and simplifies others to create a more streamlined protocol stack.
+
+The four layers of the TCP/IP suite are:
+
+Link Layer: This layer is responsible for the physical transmission of data over a network.
+
+Internet Layer: This layer provides routing of data packets over the Internet based on their IP addresses.
+
+Transport Layer: This layer provides reliable communication between applications by establishing a connection-oriented or connectionless communication channel.
+
+Application Layer: This layer provides services to application programs and enables them to access network resources.
+
+The OSI Model and TCP/IP suite are connected in that they both provide a framework for understanding how different network protocols work together to facilitate communication between devices on a network. The TCP/IP suite is based on the OSI Model, but it simplifies and streamlines some of the layers to create a more efficient protocol stack. Together, they provide the foundation for end-to-end web solutions by enabling communication between devices on the Internet.
+
+  3. Explain the difference between assume role policy and role policy
+
+  The Assume Role Policy controls who can assume the role and under what conditions, while the Role Policy controls the permissions granted to the role and what actions can be performed by the entity assuming the role. Both policies are important for controlling access to AWS resources and ensuring the security of your AWS environment.
 
