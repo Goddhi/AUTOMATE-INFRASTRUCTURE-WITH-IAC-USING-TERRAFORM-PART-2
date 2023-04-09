@@ -5,27 +5,49 @@
 [Introduction](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#introduction)
 
 [Prerequisites](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#prerequisites)
+
 [Networking](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#networking)
+
 [Creating our Private Subnets](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#creating-our-private-subnets)
-[Introducing Tagging]https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#introducing-tagging()
+
+[Introducing Tagging](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#introducing-tagging)
+
 [Creating our Internet Gateway](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#creating-our-internet-gateway)
+
 [Creating our NAT Gateway](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#creating-our-nat-gateways)
+
 [AWS Routes](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#aws-routes)
+
 [Creating Private routes](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#creating-private-routes)
+
 [Creating Public routes](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#creating-public-routes)
+
 [AWS Identity and Access Management](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#aws-identity-and-access-management)
+
 [Creating an IAM Role (AssumeRole)](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#creating-an-iam-role-assumerole)
+
 [Creating an IAM Policy](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#creating-an-iam-policy)
+
 [CREATE SECURITY GROUPS](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#create-security-groups)
+
 [Create a Certificate from Amazon Certificate Manager](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#create-a-certificate-from-amazon-certificate-manager)
+
 [Create an external (Internet facing) Application Load Balancer (ALB)](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#create-an-external-internet-facing-application-load-balancer-alb)
+
 [Create an Internal (Internal) Application Load Balancer (ALB)](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#create-an-internal-internal-application-load-balancer-alb)
+
 [CREATING AUTOSCALING GROUPS](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#creating-autoscaling-groups)
-[Creating notifications for all the auto-scaling groups]()
+
+[Creating notifications for all the auto-scaling groups](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#creating-notifications-for-all-the-auto-scaling-groups)
+
 [Creating our Launch Templates](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#creating-our-launch-templates)
-[Provisioning Storage and Database]()
+
+[Provisioning Storage and Database](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#provisioning-storage-and-database)
+
 [Creating an EFS file system](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#creating-an-efs-file-system)
+
 [Creating an RDS instance](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#creating-an-rds-instance)
+
 [Conclusion](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#conclusion)
 
 
