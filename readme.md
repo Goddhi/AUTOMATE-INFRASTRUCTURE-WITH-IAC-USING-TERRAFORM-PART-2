@@ -212,7 +212,8 @@ resource "aws_route_table" "private-rtb" {
     },
   )
 }
-```Let's now create the private route table and attach a nat gateway to it.
+```
+Let's now create the private route table and attach a nat gateway to it.
 
 ```
 # Create route for the private route table and attach a nat gateway to it
