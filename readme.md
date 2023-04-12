@@ -69,7 +69,7 @@ Note: We are building according to this architecture
 - [Terraform](https://www.terraform.io/downloads.html)
 - [AWS Account](https://aws.amazon.com/)
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html)
-- [Project code] (https://github.com/Goddhi/terraform-source-code)
+- [Project code](https://github.com/Goddhi/terraform-source-code)
 
 
 ### Networking
