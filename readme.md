@@ -69,7 +69,7 @@ Note: We are building according to this architecture
 - [Terraform](https://www.terraform.io/downloads.html)
 - [AWS Account](https://aws.amazon.com/)
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html)
-- [Project code] (https://github.com/manny-uncharted/Terraform-codes)
+- [Project code] (https://github.com/Goddhi/terraform-source-code)
 
 
 ### Networking
@@ -891,7 +891,7 @@ Create ```asg-bastion-nginx.tf``` file and add the following code snippet:
 
 ```
 ## creating sns topic for all the auto scaling groups
-resource "aws_sns_topic" "manny-sns" {
+resource "aws_sns_topic" "goddhi-sns" {
 name = "Default_CloudWatch_Alarms_Topic"
 }
 ```
@@ -912,7 +912,7 @@ resource "aws_autoscaling_notification" "david_notifications" {
     "autoscaling:EC2_INSTANCE_TERMINATE_ERROR",
   ]
 
-  topic_arn = aws_sns_topic.david-sns.arn
+  topic_arn = aws_sns_topic.goddhi-sns.arn
 }
 ```
 
@@ -1333,7 +1333,7 @@ resource "aws_db_instance" "ACS-rds" {
   engine                 = "mysql"
   engine_version         = "5.7"
   instance_class         = "db.t2.micro"
-  name                   = "mannydb"
+  name                   = "goddhidb"
   username               = var.master-username
   password               = var.master-password
   parameter_group_name   = "default.mysql5.7"
