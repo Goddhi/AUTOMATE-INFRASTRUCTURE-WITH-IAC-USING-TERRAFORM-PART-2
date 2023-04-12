@@ -1,5 +1,7 @@
 # AUTOMATE INFRASTRUCTURE WITH IAC USING TERRAFORM PART 2
 
+[Project Source Code](https://github.com/Goddhi/terraform-source-code)
+
 ### Table of Contents
 
 [Introduction](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#introduction)
@@ -50,8 +52,9 @@
 
 [Conclusion](https://github.com/Goddhi/AUTOMATE-INFRASTRUCTURE-WITH-IAC-USING-TERRAFORM-PART-2#conclusion)
 
-[Project Source Code](https://github.com/Goddhi/terraform-source-code)
-Additional Tasks
+
+
+### Additional Tasks
 
 ### Introduction
 
